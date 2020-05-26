@@ -25,7 +25,6 @@ type SignatureData struct {
 type Options struct {
 	ProxyPrefix        string `flag:"proxy-prefix" cfg:"proxy_prefix"`
 	PingPath           string `flag:"ping-path" cfg:"ping_path"`
-	ProxyWebSockets    bool   `flag:"proxy-websockets" cfg:"proxy_websockets"`
 	HTTPAddress        string `flag:"http-address" cfg:"http_address"`
 	HTTPSAddress       string `flag:"https-address" cfg:"https_address"`
 	ReverseProxy       bool   `flag:"reverse-proxy" cfg:"reverse_proxy"`
@@ -62,25 +61,25 @@ type Options struct {
 	Cookie  CookieOptions  `cfg:",squash"`
 	Session SessionOptions `cfg:",squash"`
 
-	Upstreams                     []string      `flag:"upstream" cfg:"upstreams"`
-	SkipAuthRegex                 []string      `flag:"skip-auth-regex" cfg:"skip_auth_regex"`
-	SkipJwtBearerTokens           bool          `flag:"skip-jwt-bearer-tokens" cfg:"skip_jwt_bearer_tokens"`
-	ExtraJwtIssuers               []string      `flag:"extra-jwt-issuers" cfg:"extra_jwt_issuers"`
-	PassBasicAuth                 bool          `flag:"pass-basic-auth" cfg:"pass_basic_auth"`
-	SetBasicAuth                  bool          `flag:"set-basic-auth" cfg:"set_basic_auth"`
-	PreferEmailToUser             bool          `flag:"prefer-email-to-user" cfg:"prefer_email_to_user"`
-	BasicAuthPassword             string        `flag:"basic-auth-password" cfg:"basic_auth_password"`
-	PassAccessToken               bool          `flag:"pass-access-token" cfg:"pass_access_token"`
-	PassHostHeader                bool          `flag:"pass-host-header" cfg:"pass_host_header"`
-	SkipProviderButton            bool          `flag:"skip-provider-button" cfg:"skip_provider_button"`
-	PassUserHeaders               bool          `flag:"pass-user-headers" cfg:"pass_user_headers"`
-	SSLInsecureSkipVerify         bool          `flag:"ssl-insecure-skip-verify" cfg:"ssl_insecure_skip_verify"`
-	SSLUpstreamInsecureSkipVerify bool          `flag:"ssl-upstream-insecure-skip-verify" cfg:"ssl_upstream_insecure_skip_verify"`
-	SetXAuthRequest               bool          `flag:"set-xauthrequest" cfg:"set_xauthrequest"`
-	SetAuthorization              bool          `flag:"set-authorization-header" cfg:"set_authorization_header"`
-	PassAuthorization             bool          `flag:"pass-authorization-header" cfg:"pass_authorization_header"`
-	SkipAuthPreflight             bool          `flag:"skip-auth-preflight" cfg:"skip_auth_preflight"`
-	FlushInterval                 time.Duration `flag:"flush-interval" cfg:"flush_interval"`
+	// Not used in the legacy config, name not allowed to match an external key (upstreams)
+	// TODO(JoelSpeed): Rename when legacy config is removed
+	UpstreamServers Upstreams `cfg:",internal"`
+
+	SkipAuthRegex         []string `flag:"skip-auth-regex" cfg:"skip_auth_regex"`
+	SkipJwtBearerTokens   bool     `flag:"skip-jwt-bearer-tokens" cfg:"skip_jwt_bearer_tokens"`
+	ExtraJwtIssuers       []string `flag:"extra-jwt-issuers" cfg:"extra_jwt_issuers"`
+	PassBasicAuth         bool     `flag:"pass-basic-auth" cfg:"pass_basic_auth"`
+	SetBasicAuth          bool     `flag:"set-basic-auth" cfg:"set_basic_auth"`
+	PreferEmailToUser     bool     `flag:"prefer-email-to-user" cfg:"prefer_email_to_user"`
+	BasicAuthPassword     string   `flag:"basic-auth-password" cfg:"basic_auth_password"`
+	PassAccessToken       bool     `flag:"pass-access-token" cfg:"pass_access_token"`
+	SkipProviderButton    bool     `flag:"skip-provider-button" cfg:"skip_provider_button"`
+	PassUserHeaders       bool     `flag:"pass-user-headers" cfg:"pass_user_headers"`
+	SSLInsecureSkipVerify bool     `flag:"ssl-insecure-skip-verify" cfg:"ssl_insecure_skip_verify"`
+	SetXAuthRequest       bool     `flag:"set-xauthrequest" cfg:"set_xauthrequest"`
+	SetAuthorization      bool     `flag:"set-authorization-header" cfg:"set_authorization_header"`
+	PassAuthorization     bool     `flag:"pass-authorization-header" cfg:"pass_authorization_header"`
+	SkipAuthPreflight     bool     `flag:"skip-auth-preflight" cfg:"skip_auth_preflight"`
 
 	// These options allow for other providers besides Google, with
 	// potential overrides.
@@ -125,7 +124,6 @@ type Options struct {
 
 	// internal values that are set after config validation
 	redirectURL        *url.URL
-	proxyURLs          []*url.URL
 	compiledRegex      []*regexp.Regexp
 	provider           providers.Provider
 	sessionStore       sessionsapi.SessionStore
@@ -137,7 +135,6 @@ type Options struct {
 
 // Options for Getting internal values
 func (o *Options) GetRedirectURL() *url.URL                        { return o.redirectURL }
-func (o *Options) GetProxyURLs() []*url.URL                        { return o.proxyURLs }
 func (o *Options) GetCompiledRegex() []*regexp.Regexp              { return o.compiledRegex }
 func (o *Options) GetProvider() providers.Provider                 { return o.provider }
 func (o *Options) GetSessionStore() sessionsapi.SessionStore       { return o.sessionStore }
@@ -148,7 +145,6 @@ func (o *Options) GetRealClientIPParser() ipapi.RealClientIPParser { return o.re
 
 // Options for Setting internal values
 func (o *Options) SetRedirectURL(s *url.URL)                        { o.redirectURL = s }
-func (o *Options) SetProxyURLs(s []*url.URL)                        { o.proxyURLs = s }
 func (o *Options) SetCompiledRegex(s []*regexp.Regexp)              { o.compiledRegex = s }
 func (o *Options) SetProvider(s providers.Provider)                 { o.provider = s }
 func (o *Options) SetSessionStore(s sessionsapi.SessionStore)       { o.sessionStore = s }
@@ -163,7 +159,6 @@ func NewOptions() *Options {
 		ProxyPrefix:         "/oauth2",
 		ProviderType:        "google",
 		PingPath:            "/ping",
-		ProxyWebSockets:     true,
 		HTTPAddress:         "127.0.0.1:4180",
 		HTTPSAddress:        ":443",
 		RealClientIPHeader:  "X-Real-IP",
@@ -183,12 +178,10 @@ func NewOptions() *Options {
 		AzureTenant:                      "common",
 		SetXAuthRequest:                  false,
 		SkipAuthPreflight:                false,
-		FlushInterval:                    time.Duration(1) * time.Second,
 		PassBasicAuth:                    true,
 		SetBasicAuth:                     false,
 		PassUserHeaders:                  true,
 		PassAccessToken:                  false,
-		PassHostHeader:                   true,
 		SetAuthorization:                 false,
 		PassAuthorization:                false,
 		PreferEmailToUser:                false,

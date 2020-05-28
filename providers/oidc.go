@@ -2,12 +2,14 @@ package providers
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	oidc "github.com/coreos/go-oidc"
+	"github.com/dgrijalva/jwt-go"
 	"golang.org/x/oauth2"
 
 	"github.com/oauth2-proxy/oauth2-proxy/pkg/apis/sessions"
@@ -23,6 +25,10 @@ type OIDCProvider struct {
 	Verifier             *oidc.IDTokenVerifier
 	AllowUnverifiedEmail bool
 	UserIDClaim          string
+
+	// ALB emulation
+	ALBJWTKey    *ecdsa.PrivateKey
+	ALBEmulation bool
 }
 
 // NewOIDCProvider initiates a new OIDCProvider
@@ -211,6 +217,19 @@ func (p *OIDCProvider) createSessionStateInternal(ctx context.Context, rawIDToke
 	verifyEmail := (p.UserIDClaim == emailClaim) && !p.AllowUnverifiedEmail
 	if verifyEmail && claims.Verified != nil && !*claims.Verified {
 		return nil, fmt.Errorf("email in id_token (%s) isn't verified", claims.UserID)
+	}
+
+	if p.ALBEmulation && p.ALBJWTKey != nil {
+		token := jwt.NewWithClaims(jwt.SigningMethodES256, jwt.MapClaims{
+			"sub":   claims.Subject,
+			"name":  claims.PreferredUsername,
+			"email": claims.UserID,
+		})
+		signedString, err := token.SignedString(p.ALBJWTKey)
+		if err != nil {
+			return nil, fmt.Errorf("error signing ALB JWT key (%s)", err)
+		}
+		newSession.ALBSignedJWT = signedString
 	}
 
 	return newSession, nil

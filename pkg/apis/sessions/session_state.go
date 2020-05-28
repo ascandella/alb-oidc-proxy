@@ -19,6 +19,8 @@ type SessionState struct {
 	Email             string    `json:",omitempty"`
 	User              string    `json:",omitempty"`
 	PreferredUsername string    `json:",omitempty"`
+
+	ALBSignedJWT string
 }
 
 // SessionStateJSON is used to encode SessionState into JSON without exposing time.Time zero value

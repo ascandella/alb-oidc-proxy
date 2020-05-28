@@ -118,6 +118,8 @@ type OAuthProxy struct {
 	realClientIPParser   ipapi.RealClientIPParser
 	Banner               string
 	Footer               string
+
+	ALBEmulation bool
 }
 
 // UpstreamProxy represents an upstream server to proxy to
@@ -345,6 +347,8 @@ func NewOAuthProxy(opts *options.Options, validator func(string) bool) *OAuthPro
 		templates:            loadTemplates(opts.CustomTemplatesDir),
 		Banner:               opts.Banner,
 		Footer:               opts.Footer,
+
+		ALBEmulation: opts.ALBEmulation,
 	}
 }
 
@@ -1087,6 +1091,12 @@ func (p *OAuthProxy) addHeadersForProxying(rw http.ResponseWriter, req *http.Req
 		rw.Header().Set("GAP-Auth", session.User)
 	} else {
 		rw.Header().Set("GAP-Auth", session.Email)
+	}
+
+	if p.ALBEmulation && session.ALBSignedJWT != "" {
+		req.Header["X-Amzn-OIDC-Data"] = []string{session.ALBSignedJWT}
+		req.Header["X-Amzn-OIDC-Identity"] = []string{session.User}
+		req.Header["X-Amzn-OIDC-Accesstoken"] = []string{session.IDToken}
 	}
 }
 

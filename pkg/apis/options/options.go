@@ -133,6 +133,10 @@ type Options struct {
 	oidcVerifier       *oidc.IDTokenVerifier
 	jwtBearerVerifiers []*oidc.IDTokenVerifier
 	realClientIPParser ipapi.RealClientIPParser
+
+	// ALB OIDC-simulation config options
+	ALBEmulation  bool   `flag:"alb-emulation" cfg:"alb_emulation"`
+	ALBJWTKeyFile string `flag:"alb-jwt-key-file" cfg:"alb_jwt_key_file"`
 }
 
 // Options for Getting internal values
@@ -336,5 +340,7 @@ func NewFlagSet() *pflag.FlagSet {
 
 	flagSet.String("user-id-claim", "email", "which claim contains the user ID")
 
+	flagSet.Bool("alb-emulation", false, "Pass JWT claims as x-amzn-oidc-data header")
+	flagSet.String("alb-jwt-key-file", "", "path to the private key file in PEM format used to sign the JWT so that you can say something like -alb-jwt-key-file=/etc/ssl/private/alb_jwt_signing_key.pem")
 	return flagSet
 }

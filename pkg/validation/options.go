@@ -327,6 +327,25 @@ func parseProviderInfo(o *options.Options, msgs []string) []string {
 		} else {
 			p.Verifier = o.GetOIDCVerifier()
 		}
+		if o.ALBEmulation {
+			if o.ALBJWTKeyFile == "" {
+				msgs = append(msgs, "need ALB key file specified")
+			} else {
+				keyData, err := ioutil.ReadFile(o.ALBJWTKeyFile)
+				if err != nil {
+					msgs = append(msgs, "could not read key file: "+o.ALBJWTKeyFile)
+				}
+				signKey, err := jwt.ParseECPrivateKeyFromPEM(keyData)
+				if err != nil {
+					fmt.Printf(err.Error())
+					msgs = append(msgs, "could not parse private key from PEM file:"+o.ALBJWTKeyFile)
+				} else {
+					p.ALBJWTKey = signKey
+				}
+				p.ALBEmulation = true
+
+			}
+		}
 	case *providers.GitLabProvider:
 		p.AllowUnverifiedEmail = o.InsecureOIDCAllowUnverifiedEmail
 		p.Group = o.GitLabGroup
